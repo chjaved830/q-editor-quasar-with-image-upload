@@ -1,0 +1,270 @@
+<template>
+  <q-editor
+      v-model="modelValue[modelName]"
+      style="min-height: 40vh"
+      :dense="$q.screen.lt.md"
+      :definitions="{
+      upload: {
+        tip: 'Upload to cloud',
+        icon: 'cloud_upload',
+        label: 'Upload',
+        handler: uploadImg
+      }
+    }"
+      :toolbar="[
+      ['bold', 'italic', 'strike', 'underline', 'subscript', 'superscript'],
+      [
+         {
+           label: $q.lang.editor.formatting,
+           icon: $q.iconSet.editor.formatting,
+           list: 'no-icons',
+           options: [
+              'h1',
+              'h2',
+              'h3',
+              'h4',
+              'h5',
+              'h6',
+              'p',
+              'code'
+           ]
+         },
+         {
+             label: $q.lang.editor.fontSize,
+             icon: $q.iconSet.editor.fontSize,
+             fixedLabel: true,
+             fixedIcon: true,
+             list: 'no-icons',
+             options: [
+                'size-1',
+                'size-2',
+                'size-3',
+                'size-4',
+                'size-5',
+                'size-6',
+                'size-7'
+             ]
+         },
+         {
+            label: $q.lang.editor.defaultFont,
+            icon: $q.iconSet.editor.font,
+            fixedIcon: true,
+            list: 'no-icons',
+            options: [
+               'default_font',
+               'arial',
+               'arial_black',
+               'comic_sans',
+               'courier_new',
+               'impact',
+               'lucida_grande',
+               'times_new_roman',
+               'verdana'
+            ]
+         },
+         'removeFormat'
+      ],
+      ['token', 'hr', 'link', 'custom_btn'],
+      ['upload'],
+      [
+        {
+           label: $q.lang.editor.align,
+           icon: $q.iconSet.editor.align,
+           fixedLabel: true,
+           list: 'only-icons',
+           options: ['left', 'center', 'right', 'justify']
+        }
+      ],
+      ['quote', 'unordered', 'ordered', 'outdent', 'indent'],
+      ['undo', 'redo'],
+      ['viewsource']
+    ]"
+      :fonts="{
+       arial: 'Arial',
+       arial_black: 'Arial Black',
+       comic_sans: 'Comic Sans MS',
+       courier_new: 'Courier New',
+       impact: 'Impact',
+       lucida_grande: 'Lucida Grande',
+       times_new_roman: 'Times New Roman',
+       verdana: 'Verdana'
+    }"
+  />
+
+  <!-- Upload Popup start here -->
+  <q-dialog v-model="is_image">
+    <q-card style="width: 550px">
+      <!-- File drag & drop section start here -->
+      <q-card-section
+          style="height: 200px"
+          class="bg-primary cursor-pointer"
+          @drop="drop"
+          @dragover="dragover"
+          @dragleave="dragleave"
+          @click="PickFile"
+      >
+        <div class="text-center text-white">
+          <q-icon name="cloud_upload" size="90px"/>
+          <p class="q-mb-none q-pt-lg text-h6">
+            Drop files here or
+            <span class="cursor-pointer text-red">select here</span>
+          </p>
+        </div>
+      </q-card-section>
+      <!-- File drag & drop section end here -->
+
+      <!-- Image preview section start here -->
+      <q-card-section>
+        <div class="row q-col-gutter-md">
+          <div
+              class="col-4"
+              v-for="(img, index) in preview_images"
+              :key="img"
+          >
+            <q-img
+                v-if="['.png', '.jpg', '.jpeg', '.svg', '.webp'].includes(img.type)"
+                :src="img.src"
+                height="200px"
+                width="200px"
+            >
+              <div class="absolute bg-transparent" style="top: 0px; right: 0px">
+                <q-icon
+                    class="cursor-pointer"
+                    name="delete"
+                    size="sm"
+                    color="negative"
+                    @click="deleteImg(index)"
+                />
+              </div>
+            </q-img>
+          </div>
+          <div class="col-12">
+            <q-btn
+                label="cancel"
+                color="negative"
+                v-close-popup
+            />
+            <q-btn
+                @click="insertImages"
+                class="q-ml-md text-capitalize"
+                label="insert File"
+                color="primary"
+            />
+          </div>
+        </div>
+      </q-card-section>
+      <!-- Image preview section end here -->
+      <q-file
+          v-model="images"
+          multiple
+          ref="qFile"
+          class="hidden"
+      />
+    </q-card>
+  </q-dialog>
+  <!-- Upload Popup end here -->
+
+  <!-- Edit image Popup start here -->
+  <q-dialog v-model="editImage">
+    <q-card class="full-width">
+      <q-card-section>
+        <q-btn
+            label="cancel"
+            v-close-popup
+            color="negative"
+        />
+      </q-card-section>
+    </q-card>
+  </q-dialog>
+  <!-- Edit Image Popup end here -->
+</template>
+
+<script>
+import {Notify} from "quasar";
+
+export default {
+  name: 'Editor',
+  props: ['modelValue','modelName'],
+  data() {
+    return {
+      images: [],
+      preview_images: [],
+      is_image: false,
+      editImage: false,
+      is_dragging: false,
+    }
+  },
+  watch: {
+    images() {
+      this.previewImage();
+    }
+  },
+  methods: {
+    insertImages() {
+      if (this.preview_images && this.preview_images.length) {
+        this.preview_images.forEach((item) => {
+          if (['.png', '.jpg', '.jpeg', '.svg', '.webp'].includes(item.type)) {
+            this.modelValue[this.modelName] += "<img draggable='true' class='cursor-pointer max-image q-ma-xs' src='" + item.src + "'/>";
+          }
+        });
+        this.preview_images = [];
+        this.is_image = false;
+      } else {
+        Notify.create({
+          position: 'top',
+          color: 'negative',
+          icon: 'warning',
+          message: 'Please Insert File.'
+        });
+      }
+    },
+    deleteImg(index) {
+      this.preview_images.splice(index, 1);
+    },
+    previewImage() {
+      this.images.forEach((item) => {
+        let reader = new FileReader();
+        reader.onload = ((e) => {
+          let obj = {
+            src: reader.result,
+            type: item['name'].match(/\.[0-9a-z]+$/i)[0]
+          }
+          this.preview_images.push(obj);
+        });
+        reader.readAsDataURL(item);
+      });
+    },
+    PickFile() {
+      this.$refs.qFile.pickFiles();
+    },
+    getFiles(e, isDrop = false) {
+      let imgArray = Array.prototype.slice.call(isDrop ? e.dataTransfer.files : e.target.files)
+      imgArray.forEach((item) => {
+        this.images.push(item);
+      })
+      this.previewImage();
+      this.images = [];
+    },
+    drop(e) {
+      e.preventDefault();
+      this.getFiles(e, true)
+    },
+    dragover(e) {
+      e.preventDefault();
+      this.is_dragging = true;
+    },
+    dragleave() {
+      this.is_dragging = false;
+    },
+    uploadImg() {
+      this.is_image = true;
+    }
+  }
+}
+</script>
+<style>
+.max-image {
+  width: 300px !important;
+  height: 250px !important;
+}
+</style>
